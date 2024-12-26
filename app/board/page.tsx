@@ -1,217 +1,220 @@
 "use client";
 
-import React from "react";
-import Card from "../components/Card";
-
-export const metadata = {
-  title: "Board",
-  description: "board dashboard",
-};
+import React, { useCallback, useState } from "react";
+import SectionList from "../components/SectionList";
 
 const Board = () => {
-  const [cards, setCards] = React.useState([
-    { id: 1, title: "aprender Next.js", section: "backlog" },
-    { id: 2, title: "aprender back con node", section: "backlog" },
+  const [cards, setCards] = useState<Card[]>([
+    {
+      id: 4,
+      title: "uno",
+      section: "backlog",
+      position: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 1,
+      title: "dos",
+      section: "backlog",
+      position: 2,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 2,
+      title: "tres",
+      section: "backlog",
+      position: 3,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
     {
       id: 3,
       title: "levantar docker con base de dato en progress",
       section: "ready",
+      position: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
   ]);
 
-  const addCard = () => {
-    const newCard = {
-      id: Math.random(),
-      title: "new card",
-      section: "backlog",
-    };
-    setCards([...cards, newCard]);
-  };
+  const [sections] = useState<Section[]>([
+    { id: 1, title: "backlog" },
+    { id: 2, title: "in-progress" },
+    { id: 3, title: "ready" },
+    { id: 4, title: "new" },
+  ]);
 
-  const removeCard = (id: number) => {
-    setCards(cards.filter((card) => card.id !== id));
-  };
+  const [currentSectionSelected, setCurrentSectionSelected] = useState<{
+    section: string;
+    position: number;
+  } | null>(null);
 
-  const updateCard = (id: number, title: string) => {
-    const newCards = cards.map((card) => {
-      if (card.id === id) {
-        return { ...card, title };
+  const addCard = useCallback(
+    (section: string) => {
+      const newCard: Card = {
+        id: Math.random(),
+        title: `New card ${
+          cards.filter((c) => c.section === section).length + 1
+        }`,
+        section,
+        position: cards.filter((c) => c.section === section).length + 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setCards((prev) => [...prev, newCard]);
+    },
+    [cards]
+  );
+
+  const removeCard = useCallback((id: number) => {
+    setCards((prev) => prev.filter((card) => card.id !== id));
+  }, []);
+
+  const updateCard = useCallback((id: number, title: string) => {
+    setCards((prev) =>
+      prev.map((card) =>
+        card.id === id ? { ...card, title, updatedAt: new Date() } : card
+      )
+    );
+  }, []);
+
+  const moveCard = useCallback(
+    (id: number, newSection: string, newPosition: number) => {
+      setCards((prevCards) => {
+        const movingCard = prevCards.find((card) => card.id === id);
+        if (!movingCard) return prevCards;
+
+        const oldSection = movingCard.section;
+        const oldPosition = movingCard.position;
+
+        // Si es la misma sección, manejamos el reordenamiento
+        if (oldSection === newSection) {
+          return prevCards
+            .map((card) => {
+              // Si es la tarjeta que estamos moviendo
+              if (card.id === id) {
+                return { ...card, position: newPosition };
+              }
+
+              // Si es una tarjeta en la misma sección
+              if (card.section === newSection) {
+                if (oldPosition < newPosition) {
+                  // Moviendo hacia abajo
+                  if (
+                    card.position <= newPosition &&
+                    card.position > oldPosition
+                  ) {
+                    return { ...card, position: card.position - 1 };
+                  }
+                } else {
+                  // Moviendo hacia arriba
+                  if (
+                    card.position >= newPosition &&
+                    card.position < oldPosition
+                  ) {
+                    return { ...card, position: card.position + 1 };
+                  }
+                }
+              }
+              return card;
+            })
+            .sort((a, b) => {
+              if (a.section === b.section) {
+                return a.position - b.position;
+              }
+              return 0;
+            });
+        }
+
+        // Movimiento entre diferentes secciones
+        // 1. Remover la tarjeta que se está moviendo
+        const remainingCards = prevCards.filter((card) => card.id !== id);
+
+        // 2. Crear la tarjeta actualizada con su nueva sección y posición
+        const updatedCard = {
+          ...movingCard,
+          section: newSection,
+          position: newPosition,
+        };
+
+        // 3. Ajustar las posiciones en ambas secciones
+        const updatedCards = remainingCards.map((card) => {
+          // Ajustar posiciones en la sección destino
+          if (card.section === newSection) {
+            if (card.position >= newPosition) {
+              return { ...card, position: card.position + 1 };
+            }
+          }
+
+          // Ajustar posiciones en la sección origen
+          if (card.section === oldSection) {
+            if (card.position > oldPosition) {
+              return { ...card, position: card.position - 1 };
+            }
+          }
+
+          return card;
+        });
+
+        // 4. Combinar y ordenar todas las tarjetas
+        const allCards = [...updatedCards, updatedCard];
+
+        // 5. Asegurar que las posiciones sean secuenciales dentro de cada sección
+        const sections = [...new Set(allCards.map((card) => card.section))];
+
+        return sections.flatMap((section) => {
+          const sectionCards = allCards
+            .filter((card) => card.section === section)
+            .sort((a, b) => a.position - b.position);
+
+          // Reasignar posiciones secuencialmente
+          return sectionCards.map((card, index) => ({
+            ...card,
+            position: index + 1,
+          }));
+        });
+      });
+    },
+    []
+  );
+  const onHoverInSection = useCallback((section: string, position: number) => {
+    setCurrentSectionSelected({ section, position });
+  }, []);
+
+  const onPutInSection = useCallback(
+    (id: number) => {
+      if (currentSectionSelected) {
+        moveCard(
+          id,
+          currentSectionSelected.section,
+          currentSectionSelected.position || 1
+        );
+        setCurrentSectionSelected(null);
       }
-      return card;
-    });
-    setCards(newCards);
-  };
-
-  const moveCard = (id: number, section: string) => {
-    const newCards = cards.map((card) => {
-      if (card.id === id) {
-        return { ...card, section };
-      }
-      return card;
-    });
-    setCards(newCards);
-  };
+    },
+    [currentSectionSelected, moveCard]
+  );
 
   return (
-    <main className="flex min-h-screen bg-slate-800 flex-col p-4 overflow-hidden">
+    <main className="flex min-h-screen bg-slate-800 flex-col p-4 relative">
       <h1 className="text-center">Board</h1>
-      <div className="flex flex-row gap-1 min-w-full mt-1 min-h-full">
-        <section
-          className="min-h-screen w-80 flex flex-col gap-4 box-content border-2 border-gray-600 rounded-md p-2 "
-          onDragEnter={(e) => {
-            console.log("drag enter in backlog", e);
-            e.stopPropagation();
-            e.currentTarget.classList.add("border-dotted");
-          }}
-          onDragLeave={(e) => {
-            console.log("drag leave in backlog", e);
-            e.stopPropagation();
-            e.currentTarget.classList.remove("border-dotted");
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            return false;
-          }}
-          onDrop={(e) => {
-            e.currentTarget.classList.remove("border-dotted");
-            e.stopPropagation();
-            const cardId = e.dataTransfer.getData("cardId");
-            e.currentTarget.classList.remove("opacity-50");
-            e.dataTransfer.clearData();
-            const card = cards.find((card) => card.id === Number(cardId));
-            if (card) {
-              moveCard(card.id, "backlog");
-            }
-            const dragImages = document.querySelectorAll("#drag-image");
-            dragImages.forEach((image) => {
-              image.innerHTML = "";
-            });
-            return false;
-          }}
-        >
-          <h2 className="text-center pb-2">backlog</h2>
-          <button
-            className="transition-all ease-in-out duration-300 bg-slate-600 shadow-lg rounded-full overflow-hidden p-2 self-end hover:transform hover:scale-110 "
-            onClick={addCard}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              height="1em"
-              style={{
-                fill: "#04ff00",
-              }}
-              viewBox="0 0 448 512"
-            >
-              <path d="M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32v144H48c-17.7 0-32 14.3-32 32s14.3 32 32 32h144v144c0 17.7 14.3 32 32 32s32-14.3 32-32V288h144c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z" />
-            </svg>
-          </button>
-          {cards.map((card) => {
-            return (
-              card.section === "backlog" && (
-                <Card
-                  key={card.id}
-                  id={card.id}
-                  removeCard={removeCard}
-                  title={card.title}
-                  updateCard={updateCard}
-                />
-              )
-            );
-          })}
-        </section>
-        <section
-          className="min-h-screen w-80 flex flex-col gap-4 box-content border-2 border-gray-600 rounded-md p-2"
-          onDragEnter={(e) => {
-            e.currentTarget.classList.add("border-dotted");
-          }}
-          onDragLeave={(e) => {
-            e.currentTarget.classList.remove("border-dotted");
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            return false;
-          }}
-          onDrop={(e) => {
-            e.currentTarget.classList.remove("border-dotted");
-
-            e.stopPropagation();
-            const cardId = e.dataTransfer.getData("cardId");
-            e.currentTarget.classList.remove("opacity-50");
-            e.dataTransfer.clearData();
-            const card = cards.find((card) => card.id === Number(cardId));
-            if (card) {
-              moveCard(card.id, "in-progress");
-            }
-            const dragImages = document.querySelectorAll("#drag-image");
-            dragImages.forEach((image) => {
-              image.innerHTML = "";
-            });
-            return false;
-          }}
-        >
-          <h2 className="text-center pb-2">in progress</h2>
-          {cards.map((card) => {
-            return (
-              card.section === "in-progress" && (
-                <Card
-                  key={card.id}
-                  id={card.id}
-                  removeCard={removeCard}
-                  title={card.title}
-                  updateCard={updateCard}
-                />
-              )
-            );
-          })}
-        </section>
-        <section
-          className="min-h-screen w-80 flex flex-col gap-4 box-content border-2 border-gray-600 rounded-md p-2"
-          onDragEnter={(e) => {
-            e.currentTarget.classList.add("border-dotted");
-          }}
-          onDragLeave={(e) => {
-            e.currentTarget.classList.remove("border-dotted");
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            return false;
-          }}
-          onDrop={(e) => {
-            e.currentTarget.classList.remove("border-dotted");
-
-            e.stopPropagation();
-            const cardId = e.dataTransfer.getData("cardId");
-            e.currentTarget.classList.remove("opacity-50");
-            e.dataTransfer.clearData();
-
-            const card = cards.find((card) => card.id === Number(cardId));
-            if (card) {
-              moveCard(card.id, "ready");
-            }
-            const dragImages = document.querySelectorAll("#drag-image");
-            dragImages.forEach((image) => {
-              image.innerHTML = "";
-            });
-            return false;
-          }}
-        >
-          <h2 className="text-center pb-2">ready</h2>
-          {cards.map((card) => {
-            return (
-              card.section === "ready" && (
-                <Card
-                  key={card.id}
-                  id={card.id}
-                  removeCard={removeCard}
-                  title={card.title}
-                  updateCard={updateCard}
-                />
-              )
-            );
-          })}
-        </section>
+      <div className="flex flex-row min-w-full mt-1 min-h-full">
+        {sections.map((section) => (
+          <SectionList
+            key={section.id}
+            section={section}
+            cards={cards}
+            addCard={addCard}
+            removeCard={removeCard}
+            updateCard={updateCard}
+            onHoverInSection={onHoverInSection}
+            onPutInSection={onPutInSection}
+            currentSectionSelected={currentSectionSelected}
+          />
+        ))}
       </div>
-      <div id="drag-image"></div>
     </main>
   );
 };
