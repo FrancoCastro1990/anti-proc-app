@@ -43,7 +43,7 @@ const Board = () => {
     { id: 1, title: "backlog" },
     { id: 2, title: "in-progress" },
     { id: 3, title: "ready" },
-    { id: 4, title: "new" },
+    { id: 4, title: "new", color: "bg-lime-900" },
   ]);
 
   const [currentSectionSelected, setCurrentSectionSelected] = useState<{
@@ -198,7 +198,7 @@ const Board = () => {
   );
 
   return (
-    <main className="flex min-h-screen bg-slate-800 flex-col p-4 relative">
+    <main className="flex min-h-screen bg-slate-900 flex-col p-4 relative">
       <h1 className="text-center">Board</h1>
       <div className="flex flex-row min-w-full mt-1 min-h-full">
         {sections.map((section) => (

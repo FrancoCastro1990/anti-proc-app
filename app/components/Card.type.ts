@@ -10,4 +10,5 @@ type Card = {
 type Section = {
     id: number;
     title: string;
+    color?: string;
 };
